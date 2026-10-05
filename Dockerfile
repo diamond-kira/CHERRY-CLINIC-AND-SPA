@@ -3,6 +3,7 @@ FROM php:8.2-apache
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    curl \
     unzip \
     libzip-dev \
     libpng-dev \
@@ -10,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
+    nodejs \
+    npm \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo_mysql \
@@ -30,8 +33,11 @@ WORKDIR /var/www/html
 # Copy Laravel application
 COPY . .
 
-# Install PHP dependencies
+# Install PHP dependencies (no dev)
 RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Install Node dependencies and build frontend assets
+RUN npm ci && npm run build
 
 # Set Apache document root to Laravel public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
@@ -49,4 +55,5 @@ RUN chown -R www-data:www-data /var/www/html/storage \
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+# Run migrations then start Apache
+CMD php artisan migrate --force && php artisan config:cache && php artisan route:cache && apache2-foreground
